@@ -1,0 +1,218 @@
+---
+title: "Final code"
+author: "Shoara Chowdhury"
+date: "5/26/2021"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+setwd("C:/Users/Megazone/Downloads")
+
+houseing_data<- read.csv("housing_data_2016_2017.csv")
+str(houseing_data)
+dim(houseing_data)
+names(houseing_data)
+
+summary(houseing_data)
+
+# selecting the variables which are going to affect the housing price,
+
+data_select = names(houseing_data) %in%
+  c("sale_price","num_total_rooms","kitchen_type","num_bedrooms", "num_floors_in_building","sq_footage"
+    , "maintenance_cost" ,"total_taxes"  ,"num_full_bathrooms" ,"dining_room_type","common_charges", 
+    "fuel_type", "parking_charges" )
+
+# combining the data set with the selected variables and removing rest of them
+Final_data = houseing_data[data_select]
+
+# checkinf type of final data set
+str(Final_data)
+
+#converting the factor variables to numeric for prices
+Final_data$parking_charges = gsub("[\\$,]", "", Final_data$parking_charges)
+Final_data$maintenance_cost = gsub("[\\$,]", "", Final_data$maintenance_cost)
+Final_data$sale_price = gsub("[\\$,]", "", Final_data$sale_price)
+Final_data$total_taxes = gsub("[\\$,]", "", Final_data$total_taxes)
+
+# checking for Na's values
+sapply(Final_data, function(x) sum(is.na(x)))
+
+# converting data types to numerics
+Final_data$dining_room_type = as.numeric(Final_data$dining_room_type)
+Final_data$fuel_type = as.numeric(Final_data$fuel_type)
+Final_data$kitchen_type = as.numeric(Final_data$kitchen_type)
+Final_data$num_bedrooms = as.numeric(Final_data$num_bedrooms)
+Final_data$num_floors_in_building= as.numeric(Final_data$num_floors_in_building)
+Final_data$num_total_rooms= as.numeric(Final_data$num_total_rooms)
+Final_data$sq_footage= as.numeric(Final_data$sq_footage)
+Final_data$parking_charges = as.numeric(Final_data$parking_charges )
+Final_data$sale_price= as.numeric(Final_data$sale_price)
+Final_data$total_taxes= as.numeric(Final_data$total_taxes)
+
+# replacing all Na's values with the median values
+dining = median(Final_data$dining_room_type, na.rm = T)
+Final_data$dining_room_type = ifelse(is.na(Final_data$dining_room_type),
+                                     dining,Final_data$dining_room_type)
+
+fuel_type = median(Final_data$fuel_type, na.rm = T)
+Final_data$fuel_type = ifelse(is.na(Final_data$fuel_type),
+                              fuel_type,Final_data$fuel_type)
+
+kitchen_type = median(Final_data$kitchen_type , na.rm = T)
+Final_data$kitchen_type  = ifelse(is.na(Final_data$kitchen_type ),
+                                  kitchen_type,Final_data$kitchen_type )
+
+num_bedrooms = median(Final_data$num_bedrooms , na.rm = T)
+Final_data$num_bedrooms  = ifelse(is.na(Final_data$num_bedrooms ),
+                                  num_bedrooms,Final_data$num_bedrooms )
+
+num_floors_in_building = median(Final_data$num_floors_in_building  , na.rm = T)
+Final_data$num_floors_in_building   = ifelse(is.na(Final_data$num_floors_in_building  ),
+                                             num_floors_in_building,Final_data$num_floors_in_building  )
+
+num_total_rooms = median(Final_data$num_total_rooms , na.rm = T)
+Final_data$num_total_rooms  = ifelse(is.na(Final_data$num_total_rooms ),
+                                     num_total_rooms,Final_data$num_total_rooms )
+
+parking_charges = median(Final_data$parking_charges  , na.rm = T)
+Final_data$parking_charges   = ifelse(is.na(Final_data$parking_charges  ),
+                                      parking_charges,Final_data$parking_charges  )
+
+sale_price = median(Final_data$sale_price , na.rm = T)
+Final_data$sale_price  = ifelse(is.na(Final_data$sale_price ),
+                                sale_price,Final_data$sale_price )
+
+sq_footage = median(Final_data$sq_footage , na.rm = T)
+Final_data$sq_footage  = ifelse(is.na(Final_data$sq_footage ),
+                                sq_footage,Final_data$sq_footage)
+
+total_taxes = median(Final_data$total_taxes , na.rm = T)
+Final_data$total_taxes  = ifelse(is.na(Final_data$total_taxes ),
+                                 total_taxes,Final_data$total_taxes)
+
+# checking for Na's values after adding median values 
+sapply(Final_data, function(x) sum(is.na(x)))
+
+# summary of the data set
+summary(Final_data)
+
+# converting still faactor to numerica data
+Final_data$maintenance_cost = as.numeric(Final_data$maintenance_cost)
+Final_data$parking_charges = as.numeric(Final_data$parking_charges)
+Final_data$sale_price = as.numeric(Final_data$sale_price)
+Final_data$total_taxes = as.numeric(Final_data$total_taxes)
+
+# final summary of the data set after doing all the possible conversions
+summary(Final_data)
+str(Final_data)
+# partitioning the data sets into two parts training andtesting 
+library(caret)
+set.seed(200)
+trainIndex <- createDataPartition(Final_data$sale_price, p = 0.7,list = FALSE)
+train <- Final_data[trainIndex, ]
+test <- Final_data[-trainIndex, ]
+
+###########################Regression Tree Model  ###################
+library(rpart)
+Tree <- rpart(sale_price ~ ., Final_data)
+Tree$variable.importance
+plot(Tree$variable.importance)
+summary(Tree)
+
+library(rpart.plot)
+rpart.plot(Tree)
+pred = predict(Tree, test)
+pred_re <- cbind(pred , test$sale_price)
+colnames(pred_re) <- c('pred','original')
+pred_re <- as.data.frame(pred_re)
+
+#mean Square error
+mse <- mean((pred_re$original - pred_re$pred) ^ 2)
+print(mse)
+
+#Root	mean	squared	error	
+mse ^ 0.5
+
+# R - square Value
+SSE = sum((pred_re$pred - pred_re$original) ^ 2)
+SST = sum((mean(Final_data$sale_price) - pred_re$original) ^ 2)
+R2 = 1 - SSE/SST
+R2
+
+# linear regression model
+model = lm(sale_price~. , Final_data)
+summary(model)
+
+plot(model, 1)
+plot(model, 2)
+plot(model, 3)
+plot(model, 4)
+
+# random forest
+
+library(randomForest)
+library(dplyr)
+library(class) ## needed for knn
+library(ggplot2) # visualization
+library(ggthemes) # visualization
+library(scales) # visualization
+
+set.seed(1000)
+
+output.forest <- randomForest(sale_price ~ . ,
+                              data = train, importance = T)
+print(output.forest)
+importance(output.forest)
+
+fitForest1 <-predict(output.forest, newdata = test)
+
+# RMSE of this optimal random forest
+sqrt(output.forest$mse[which.min(output.forest$mse)])
+
+pred_re <- cbind(fitForest1 , test$sale_price)
+colnames(pred_re) <- c('pred','original')
+pred_re <- as.data.frame(pred_re)
+
+#mean Square error
+mse <- mean((pred_re$original - pred_re$pred) ^ 2)
+print(mse)
+
+#Root	mean	squared	error	
+mse ^ 0.5
+
+# R - square Value
+SSE = sum((pred_re$pred - pred_re$original) ^ 2)
+SST = sum((mean(Final_data$sale_price) - pred_re$original) ^ 2)
+R2 = 1 - SSE/SST
+R2
+
+importance    <- importance(output.forest)
+varImportance <- data.frame(Variables = row.names(importance), 
+                            Importance = round(importance[ ,'%IncMSE'],2))
+
+# Create a rank variable based on importance
+rankImportance <- varImportance %>% mutate(Rank = paste0('#',dense_rank(desc(Importance))))
+
+# Use ggplot2 to visualize the relative importance of variables
+print("Plot of variable importance")
+print("Variable importance of initial model")
+ggplot(rankImportance, aes(x = reorder(Variables, Importance), 
+                           y = Importance, fill = Importance)) +
+  geom_bar(stat='identity') + 
+  geom_text(aes(x = Variables, y = 0.5, label = Rank),
+            hjust=0, vjust=0.55, size = 4, colour = 'red') +
+  labs(x = 'Variables') +
+  coord_flip() + 
+  theme_few()
+
+first_SSE <- mean((fitForest1-test$sale_price)^2)
+mean(train$sale_price)
+print("Inital prediction")
+plot(fitForest1,test$sale_price,
+     xlab="predicted",ylab="actual", xaxt="n")
+abline(a=0,b=1)
+```
